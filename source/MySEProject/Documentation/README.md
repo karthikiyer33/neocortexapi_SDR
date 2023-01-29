@@ -10,6 +10,10 @@ Fig1. SDR Classifier in relation to the other modules of an HTM Network
 
 A SDR contains thousand of bits and each bit corresponds to a neuron. At any given point in time, for a given set of bits, certain bits are active and rest of them are inactive. This arrangement represent a thing at that point in time. At next point in time, representation changes making different bits active. Now this arrangement represents an another thing. As the time elapses and machine learns from various inputs, we have multiple SDRs representing muliple things and pattern of real world. These SDR can be associated, linked and compared to predict and classify new types of things which are completely unknown to the system.
 
+**HTM** by definition is Hierarchial Temporal Memory. It is the latest algorithm in AI which replicates the underlying working principles and processes of the neocortex of a biological human brain. In a biological brain, neocortex occupies almost 80% of the brain size and it is reponsible for all the conginitive action of a human.
+
+HTM systems follows the hierarchical structure of data processing and it usually consists of lower level systems such input encoders and spatial poolers and highier level systems such as temporal memory and classifiers. HTM systems represents the data in SDR as described above. Input encoders converts the raw data into SDR and rest of the highier level systems use these SDRs to learn, classify and predict new results over a time period, very much like a biological brain.
+
 The SDR classifier maps input patterns to class labels. There are as many output units as the number of class labels or buckets (in the case of scalar encoders). The output is a probabilistic distribution over all class labels. During inference, the output is calculated by first doing a weighted summation of all the inputs, and then perform a softmax nonlinear function to get the predicted distribution of class labels During learning, the connection weights between input units and output units are adjusted to maximize the likelihood of the model.
 
 **Methods to be implemented:**
