@@ -156,11 +156,30 @@
             }
         }
 
-
+        /// <summary>
+        /// Return the inference value from one input sample. The actual
+        /// learning happens in compute().
+        /// </summary>
+        /// <param name="patternNZ">list of the active indices from the output below</param>
+        /// <param name="actValueList">
+        /// dict of the classification information: bucketIdx: index of the encoder bucket actValue: actual value going into the encoder
+        /// </param>
+        /// <returns>
+        /// dict containing inference results, one entry for each step in
+        /// self.steps. The key is the number of steps, the value is an
+        /// array containing the relative likelihood for each bucketIdx
+        /// starting from bucketIdx 0.
+        /// </returns>
         public object infer(List<int> patternNZ, List<object> actValueList)
         {
             object defaultValue;
-
+            /**
+             * Return value dict. For buckets which we don't have an actual value
+             * for yet, just plug in any valid actual value. It doesn't matter what
+             * we use because that bucket won't have non-zero likelihood anyways.
+             * NOTE: If doing 0-step prediction, we shouldn't use any knowledge
+             * of the classification input during inference.
+            */
             if (this.steps[0] == 0 || actValueList == null)
             {
                 defaultValue = 0;
@@ -180,7 +199,14 @@
             return retval;
         }
 
-
+        /// <summary>
+        /// Perform inference for a single step. Given an SDR input and a weight matrix, return a predicted distribution.
+        /// </summary>
+        /// <param name="patternNZ">list of the active indices from the output below</param>
+        /// <param name="weightMatrix">Multidimentional array of the weight matrix</param>
+        /// <returns>
+        /// Multidimentional array of the predicted class label distribution
+        /// </returns>
         public object inferSingleStep(List<int> patternNZ, NDArray weightMatrix)
         {
             var outputActivation = weightMatrix[patternNZ].sum(axis: 0);
