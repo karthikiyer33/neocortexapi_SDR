@@ -216,5 +216,54 @@
             var predictDist = expOutputActivation / np.sum(expOutputActivation);
             return predictDist;
         }
+
+
+
+
+
+
+        [classmethod]
+        public static object read(object cls, object proto)
+        {
+            var classifier = object.@__new__(cls);
+            classifier.steps = (from step in proto.steps
+                                select step).ToList();
+            classifier.alpha = proto.alpha;
+            classifier.actValueAlpha = proto.actValueAlpha;
+            classifier._patternNZHistory = deque(maxlen: max(classifier.steps) + 1);
+            var patternNZHistoryProto = proto.patternNZHistory;
+            var recordNumHistoryProto = proto.recordNumHistory;
+            foreach (var i in xrange(patternNZHistoryProto.Count))
+            {
+                classifier._patternNZHistory.append((recordNumHistoryProto[i], patternNZHistoryProto[i].ToList()));
+            }
+            classifier._maxSteps = proto.maxSteps;
+            classifier._maxBucketIdx = proto.maxBucketIdx;
+            classifier._maxInputIdx = proto.maxInputIdx;
+            classifier._weightMatrix = new Dictionary<object, object>
+            {
+            };
+            var weightMatrixProto = proto.weightMatrix;
+            foreach (var i in xrange(weightMatrixProto.Count))
+            {
+                classifier._weightMatrix[weightMatrixProto[i].steps] = numpy.reshape(weightMatrixProto[i].weight, newshape: (classifier._maxInputIdx + 1, classifier._maxBucketIdx + 1));
+            }
+            classifier._actualValues = new List<object>();
+            foreach (var actValue in proto.actualValues)
+            {
+                if (actValue == 0)
+                {
+                    classifier._actualValues.append(null);
+                }
+                else
+                {
+                    classifier._actualValues.append(actValue);
+                }
+            }
+            classifier._version = proto.version;
+            classifier.verbosity = proto.verbosity;
+            return classifier;
+        }
+
     }
 }
