@@ -265,5 +265,62 @@
             return classifier;
         }
 
+
+        public static object write(object self, object proto)
+        {
+            var stepsProto = proto.init("steps", this.steps.Count);
+            foreach (var i in xrange(this.steps.Count))
+            {
+                stepsProto[i] = this.steps[i];
+            }
+            proto.alpha = this.alpha;
+            proto.actValueAlpha = this.actValueAlpha;
+            // NOTE: technically, saving `_maxSteps` is redundant, since it may be
+            // reconstructed from `self.steps` just as in the constructor. Eliminating
+            // this attribute from the capnp scheme will involve coordination with
+            // nupic.core, where the `SdrClassifierProto` schema resides.
+            proto.maxSteps = this._maxSteps;
+            // NOTE: size of history buffer may be less than `self._maxSteps` if fewer
+            // inputs had been processed
+            var patternProto = proto.init("patternNZHistory", this._patternNZHistory.Count);
+            var recordNumHistoryProto = proto.init("recordNumHistory", this._patternNZHistory.Count);
+            foreach (var i in xrange(this._patternNZHistory.Count))
+            {
+                var subPatternProto = patternProto.init(i, this._patternNZHistory[i][1].Count);
+                foreach (var j in xrange(this._patternNZHistory[i][1].Count))
+                {
+                    subPatternProto[j] = Convert.ToInt32(this._patternNZHistory[i][1][j]);
+                }
+                recordNumHistoryProto[i] = Convert.ToInt32(this._patternNZHistory[i][0]);
+            }
+            var weightMatrices = proto.init("weightMatrix", this._weightMatrix.Count);
+            var i = 0;
+            foreach (var step in this.steps)
+            {
+                var stepWeightMatrixProto = weightMatrices[i];
+                stepWeightMatrixProto.steps = step;
+                stepWeightMatrixProto.weight = this._weightMatrix[step].flatten().astype(type("float", ValueTuple.Create(float), new Dictionary<object, object>
+                {
+                })).ToList();
+                i += 1;
+            }
+            proto.maxBucketIdx = this._maxBucketIdx;
+            proto.maxInputIdx = this._maxInputIdx;
+            var actualValuesProto = proto.init("actualValues", this._actualValues.Count);
+            foreach (var i in xrange(this._actualValues.Count))
+            {
+                if (this._actualValues[i] != null)
+                {
+                    actualValuesProto[i] = this._actualValues[i];
+                }
+                else
+                {
+                    actualValuesProto[i] = 0;
+                }
+            }
+            proto.version = this._version;
+            proto.verbosity = this.verbosity;
+        }
     }
+
 }
