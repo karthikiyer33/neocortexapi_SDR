@@ -14,13 +14,13 @@
         public float actValueAlpha;
         public float verbosity;
         private int _maxSteps;
-        private List<int> _patternNZHistory;
+        private List<int> _patternNZHistory = new();
         private int _maxInputIdx;
         private int _maxBucketIdx;
-        private Dictionary<object, NDArray> _weightMatrix;
-        private List<object> _actualValues;
+        private Dictionary<object, NDArray> _weightMatrix = new();
+        private List<object> _actualValues = new();
 
-        public SDRClassifier(List<int> steps, float alpha, float actValueAlpha, float verbosity)
+        public SDRClassifier(List<int> steps, float alpha, float actValueAlpha, float verbosity, int version)
         {
             if (steps.Count == 0)
             {
@@ -170,7 +170,7 @@
         /// array containing the relative likelihood for each bucketIdx
         /// starting from bucketIdx 0.
         /// </returns>
-        public object infer(List<int> patternNZ, List<object> actValueList)
+        public object Infer(List<int> patternNZ, List<object> actValueList)
         {
             object defaultValue;
             /**
@@ -190,10 +190,10 @@
             }
             var actValues = (from x in this._actualValues
                              select x != null ? x : defaultValue).ToList();
-            var retval = new Dictionary<object, object> {{"actualValues",actValues}};
+            var retval = new Dictionary<object, object> {{"actualValues", actValues}};
             foreach (var nSteps in this.steps)
             {
-                var predictDist = this.inferSingleStep(patternNZ, this._weightMatrix[nSteps]);
+                var predictDist = this.InferSingleStep(patternNZ, this._weightMatrix[nSteps]);
                 retval[nSteps] = predictDist;
             }
             return retval;
@@ -207,7 +207,7 @@
         /// <returns>
         /// Multidimentional array of the predicted class label distribution
         /// </returns>
-        public object inferSingleStep(List<int> patternNZ, NDArray weightMatrix)
+        public object InferSingleStep(List<int> patternNZ, NDArray weightMatrix)
         {
             var outputActivation = weightMatrix[patternNZ].sum(axis: 0);
             // softmax normalization
