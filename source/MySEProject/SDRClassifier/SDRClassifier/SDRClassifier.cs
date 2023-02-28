@@ -14,14 +14,13 @@
         public float actValueAlpha;
         public float verbosity;
         private int _maxSteps;
-        private List<int> _patternNZHistory;
+        private List<int> _patternNZHistory = new();
         private int _maxInputIdx;
         private int _maxBucketIdx;
-        private Dictionary<object, object> _weightMatrix;
-        private List<object> _actualValues;
+        private Dictionary<object, NDArray> _weightMatrix = new();
+        private List<object> _actualValues = new();
 
-        public SDRClassifier(List<int> steps, float alpha, float actValueAlpha,
-            float verbosity)
+        public SDRClassifier(List<int> steps, float alpha, float actValueAlpha, float verbosity, int version)
         {
             if (steps.Count == 0)
             {
@@ -55,7 +54,7 @@
             // each bucket index during inference
             this._maxBucketIdx = 0;
             // The connection weight matrix
-            this._weightMatrix = new Dictionary<object, object>();
+            this._weightMatrix = new Dictionary<object, NDArray>();
             foreach (var step in this.steps)
             {
                 this._weightMatrix[step] = np.zeros(shape: (this._maxInputIdx + 1, this._maxBucketIdx + 1));
@@ -63,9 +62,7 @@
             // This keeps track of the actual value to use for each bucket index. We
             // start with 1 bucket, no actual value so that the first infer has something
             // to return
-            this._actualValues = new List<object> {
-                    null
-                };
+            this._actualValues = new List<object> {null};
             // Set the version to the latest version.
             // This is used for serialization/deserialization
             this.version = version;
@@ -120,7 +117,7 @@
             if (patternNZ.Max() > this._maxInputIdx)
             {
                 var newMaxInputIdx = patternNZ.Max();
-                foreach ( var nSteps in this.steps)
+                foreach (var nSteps in this.steps)
                 {
                     this._weightMatrix[nSteps] = np.concatenate(((NDArray, NDArray))(this._weightMatrix[nSteps], np.zeros(shape: (newMaxInputIdx - this._maxInputIdx, this._maxBucketIdx + 1))), axis: 0);
                 }
@@ -157,6 +154,67 @@
                 actValueList = null;
                 bucketIdxList = null;
             }
+        }
+
+        /// <summary>
+        /// Return the inference value from one input sample. The actual
+        /// learning happens in compute().
+        /// </summary>
+        /// <param name="patternNZ">list of the active indices from the output below</param>
+        /// <param name="actValueList">
+        /// dict of the classification information: bucketIdx: index of the encoder bucket actValue: actual value going into the encoder
+        /// </param>
+        /// <returns>
+        /// dict containing inference results, one entry for each step in
+        /// self.steps. The key is the number of steps, the value is an
+        /// array containing the relative likelihood for each bucketIdx
+        /// starting from bucketIdx 0.
+        /// </returns>
+        public object Infer(List<int> patternNZ, List<object> actValueList)
+        {
+            object defaultValue;
+            /**
+             * Return value dict. For buckets which we don't have an actual value
+             * for yet, just plug in any valid actual value. It doesn't matter what
+             * we use because that bucket won't have non-zero likelihood anyways.
+             * NOTE: If doing 0-step prediction, we shouldn't use any knowledge
+             * of the classification input during inference.
+            */
+            if (this.steps[0] == 0 || actValueList == null)
+            {
+                defaultValue = 0;
+            }
+            else
+            {
+                defaultValue = actValueList[0];
+            }
+            var actValues = (from x in this._actualValues
+                             select x != null ? x : defaultValue).ToList();
+            var retval = new Dictionary<object, object> {{"actualValues", actValues}};
+            foreach (var nSteps in this.steps)
+            {
+                var predictDist = this.InferSingleStep(patternNZ, this._weightMatrix[nSteps]);
+                retval[nSteps] = predictDist;
+            }
+            return retval;
+        }
+
+        /// <summary>
+        /// Perform inference for a single step. Given an SDR input and a weight matrix, return a predicted distribution.
+        /// </summary>
+        /// <param name="patternNZ">list of the active indices from the output below</param>
+        /// <param name="weightMatrix">Multidimentional array of the weight matrix</param>
+        /// <returns>
+        /// Multidimentional array of the predicted class label distribution
+        /// </returns>
+        public object InferSingleStep(List<int> patternNZ, NDArray weightMatrix)
+        {
+            var outputActivation = weightMatrix[patternNZ].sum(axis: 0);
+            // softmax normalization
+            outputActivation = outputActivation - np.max(outputActivation);
+            var expOutputActivation = np.exp(outputActivation);
+            var predictDist = expOutputActivation / np.sum(expOutputActivation);
+            return predictDist;
         }
     }
 }
