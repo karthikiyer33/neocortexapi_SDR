@@ -62,7 +62,7 @@
             // This keeps track of the actual value to use for each bucket index. We
             // start with 1 bucket, no actual value so that the first infer has something
             // to return
-            this._actualValues = new List<object> {null};
+            this._actualValues = new List<object> { null };
             // Set the version to the latest version.
             // This is used for serialization/deserialization
             this.version = version;
@@ -76,7 +76,7 @@
         public void Compute(
                 int recordNum,
                 List<int> patternNZ,
-                Dictionary<string, int> classification,
+                Dictionary<string, object> classification,
                 bool learn,
                 object infer)
         {
@@ -128,19 +128,15 @@
             {
                 if (classification["bucketIdx"].GetType() != typeof(List<>))
                 {
-                    bucketIdxList = new List<object> {
-                            classification["bucketIdx"]
-                        };
-                    actValueList = new List<object> {
-                            classification["actValue"]
-                        };
+                    bucketIdxList = new List<object> { classification["bucketIdx"] };
+                    actValueList = new List<object> { classification["actValue"] };
                     numCategory = 1;
                 }
                 else
                 {
                     bucketIdxList = classification["bucketIdx"];
                     actValueList = classification["actValue"];
-                    numCategory = classification["bucketIdx"].Count();
+                    numCategory = ((List<object>)classification["bucketIdx"]).Count();
                 }
             }
             else
@@ -190,7 +186,7 @@
             }
             var actValues = (from x in this._actualValues
                              select x != null ? x : defaultValue).ToList();
-            var retval = new Dictionary<object, object> {{"actualValues", actValues}};
+            var retval = new Dictionary<object, object> { { "actualValues", actValues } };
             foreach (var nSteps in this.steps)
             {
                 var predictDist = this.InferSingleStep(patternNZ, this._weightMatrix[nSteps]);
