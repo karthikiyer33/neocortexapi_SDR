@@ -76,7 +76,7 @@
         public void Compute(
                 int recordNum,
                 List<int> patternNZ,
-                Dictionary<string, int> classification,
+                Dictionary<string, object> classification,
                 bool learn,
                 object infer)
         {
@@ -128,19 +128,15 @@
             {
                 if (classification["bucketIdx"].GetType() != typeof(List<>))
                 {
-                    bucketIdxList = new List<object> {
-                            classification["bucketIdx"]
-                        };
-                    actValueList = new List<object> {
-                            classification["actValue"]
-                        };
+                    bucketIdxList = new List<object> {classification["bucketIdx"]};
+                    actValueList = new List<object> {classification["actValue"]};
                     numCategory = 1;
                 }
                 else
                 {
                     bucketIdxList = classification["bucketIdx"];
                     actValueList = classification["actValue"];
-                    numCategory = classification["bucketIdx"].Count();
+                    numCategory = ((List<object>) classification["bucketIdx"]).Count();
                 }
             }
             else
