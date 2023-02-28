@@ -213,13 +213,7 @@
             return predictDist;
         }
 
-
-
-
-
-
-        [classmethod]
-        public static object read(object cls, object proto)
+        public object Read(object cls, object proto)
         {
             var classifier = object.@__new__(cls);
             classifier.steps = (from step in proto.steps
@@ -229,9 +223,9 @@
             classifier._patternNZHistory = deque(maxlen: max(classifier.steps) + 1);
             var patternNZHistoryProto = proto.patternNZHistory;
             var recordNumHistoryProto = proto.recordNumHistory;
-            foreach (var i in xrange(patternNZHistoryProto.Count))
+            for (var i = 0; i < patternNZHistoryProto.Count; i++)
             {
-                classifier._patternNZHistory.append((recordNumHistoryProto[i], patternNZHistoryProto[i].ToList()));
+                classifier._patternNZHistory.Enqueue(Tuple.Create(recordNumHistoryProto[i], patternNZHistoryProto[i].ToList()));
             }
             classifier._maxSteps = proto.maxSteps;
             classifier._maxBucketIdx = proto.maxBucketIdx;
@@ -262,10 +256,11 @@
         }
 
 
-        public static object write(object self, object proto)
+        public object Write(object self, object proto)
         {
             var stepsProto = proto.init("steps", this.steps.Count);
-            foreach (var i in xrange(this.steps.Count))
+
+            for (int i = 0; i < this.steps.Count; i++)
             {
                 stepsProto[i] = this.steps[i];
             }
@@ -289,6 +284,15 @@
                 }
                 recordNumHistoryProto[i] = Convert.ToInt32(this._patternNZHistory[i][0]);
             }
+            for (int i = 0; i < this._patternNZHistory.Count; i++)
+            {
+                var subPatternProto = patternProto.init(i, this._patternNZHistory[i][1].Count);
+                for (int j = 0; j < this._patternNZHistory[i][1].Count; j++)
+                {
+                    subPatternProto[j] = Convert.ToInt32(this._patternNZHistory[i][1][j]);
+                }
+                recordNumHistoryProto[i] = Convert.ToInt32(this._patternNZHistory[i][0]);
+            }
             var weightMatrices = proto.init("weightMatrix", this._weightMatrix.Count);
             var i = 0;
             foreach (var step in this.steps)
@@ -300,10 +304,12 @@
                 })).ToList();
                 i += 1;
             }
+
             proto.maxBucketIdx = this._maxBucketIdx;
             proto.maxInputIdx = this._maxInputIdx;
             var actualValuesProto = proto.init("actualValues", this._actualValues.Count);
-            foreach (var i in xrange(this._actualValues.Count))
+           
+            for (int i = 0; i < this._actualValues.Count; i++)
             {
                 if (this._actualValues[i] != null)
                 {
