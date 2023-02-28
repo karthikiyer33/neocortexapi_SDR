@@ -213,6 +213,11 @@
             return predictDist;
         }
 
+        public static object getSchema(object cls)
+        {
+            return SdrClassifierProto;
+        }
+
         public static object Read(object cls, object proto)
         {
             var classifier = object.@__new__(cls);
