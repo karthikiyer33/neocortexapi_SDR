@@ -13,12 +13,12 @@
         public float alpha;
         public float actValueAlpha;
         public float verbosity;
-        private int _maxSteps;
-        private List<int> _patternNZHistory = new();
-        private int _maxInputIdx;
-        private int _maxBucketIdx;
-        private Dictionary<object, NDArray> _weightMatrix = new();
-        private List<object> _actualValues = new();
+        private int maxSteps;
+        private LinkedList<Tuple<int, List<int>>> patternNZHistory = new();
+        private int maxInputIdx;
+        private int maxBucketIdx;
+        private Dictionary<int, NDArray> weightMatrix = new();
+        private List<object> actualValues = new();
 
         public SDRClassifier(List<int> steps, float alpha, float actValueAlpha, float verbosity, int version)
         {
@@ -41,28 +41,28 @@
             this.actValueAlpha = actValueAlpha;
             this.verbosity = verbosity;
             // Max # of steps of prediction we need to support
-            this._maxSteps = this.steps.Max() + 1;
+            this.maxSteps = this.steps.Max() + 1;
             // History of the last _maxSteps activation patterns. We need to keep
             // these so that we can associate the current iteration's classification
             // with the activationPattern from N steps ago
             //this._patternNZHistory = this.deque(maxlen: this._maxSteps);
             // This contains the value of the highest input number we've ever seen
             // It is used to pre-allocate fixed size arrays that hold the weights
-            this._maxInputIdx = 0;
+            this.maxInputIdx = 0;
             // This contains the value of the highest bucket index we've ever seen
             // It is used to pre-allocate fixed size arrays that hold the weights of
             // each bucket index during inference
-            this._maxBucketIdx = 0;
+            this.maxBucketIdx = 0;
             // The connection weight matrix
-            this._weightMatrix = new Dictionary<object, NDArray>();
+            this.weightMatrix = new Dictionary<int, NDArray>();
             foreach (var step in this.steps)
             {
-                this._weightMatrix[step] = np.zeros(shape: (this._maxInputIdx + 1, this._maxBucketIdx + 1));
+                this.weightMatrix.Add(step, np.zeros(shape: (this.maxInputIdx + 1, this.maxBucketIdx + 1)));
             }
             // This keeps track of the actual value to use for each bucket index. We
             // start with 1 bucket, no actual value so that the first infer has something
             // to return
-            this._actualValues = new List<object> {null};
+            this.actualValues = new List<object>();
             // Set the version to the latest version.
             // This is used for serialization/deserialization
             this.version = version;
@@ -78,50 +78,48 @@
                 List<int> patternNZ,
                 Dictionary<string, object> classification,
                 bool learn,
-                object infer)
+                bool infer)
         {
-            //int nSteps;
-            object numCategory;
-            object actValueList;
+           // int nSteps;
+            int numCategory;
+            List<object> actValueList;
             object bucketIdxList;
+          
             if (this.verbosity >= 1)
             {
-                Console.WriteLine("  learn:", learn);
-                Console.WriteLine("  recordNum:", recordNum);
-                //Console.WriteLine(String.Format("  patternNZ (%d):", patternNZ.Count), patternNZ);
-                Console.WriteLine("  classificationIn:", classification);
+                Console.WriteLine("  learn: {0}", learn);
+                Console.WriteLine("  recordNum {0}:", recordNum);
+                Console.WriteLine("  patternNZ {0}: {1}", patternNZ.Count, string.Join(",", patternNZ.ToArray()));
+                Console.WriteLine("  classificationIn: {0}", classification);
             }
             // ensures that recordNum increases monotonically
-            if (this._patternNZHistory.Count > 0)
-            {
-                /*
-                if (recordNum < this._patternNZHistory[-1][0])
+            if (this.patternNZHistory.Count > 0)
+            {    
+                if (recordNum < this.patternNZHistory.Last?.Value?.Item1)
                 {
-                    throw ValueError("the record number has to increase monotonically");
-                }*/
+                    throw new InvalidDataException("the record number has to increase monotonically");
+                }
             }
             // Store pattern in our history if this is a new record
-            /*
-            if (this._patternNZHistory.Count == 0 || recordNum > this._patternNZHistory[-1][0])
-            {
-                this._patternNZHistory.Add((recordNum, patternNZ));
+        
+            if (this.patternNZHistory.Count == 0 || recordNum > this.patternNZHistory.Last?.Value?.Item1)
+            {   
+                this.patternNZHistory.AddLast(new LinkedListNode<Tuple<int, List<int>>>(new Tuple<int, List<int>>(recordNum, patternNZ)));
             }
-            */
+
             // To allow multi-class classification, we need to be able to run learning
             // without inference being on. So initialize retval outside
             // of the inference block.
-            var retval = new Dictionary<object, object>
-            {
-            };
+            var retval = new Dictionary<object, object>();
             // Update maxInputIdx and augment weight matrix with zero padding
-            if (patternNZ.Max() > this._maxInputIdx)
+            if (patternNZ.Max() > this.maxInputIdx)
             {
                 var newMaxInputIdx = patternNZ.Max();
                 foreach (var nSteps in this.steps)
                 {
-                    this._weightMatrix[nSteps] = np.concatenate(((NDArray, NDArray))(this._weightMatrix[nSteps], np.zeros(shape: (newMaxInputIdx - this._maxInputIdx, this._maxBucketIdx + 1))), axis: 0);
+                    this.weightMatrix[nSteps] = np.concatenate(((NDArray, NDArray))(this.weightMatrix[nSteps], np.zeros(shape: (newMaxInputIdx - this.maxInputIdx, this.maxBucketIdx + 1))), axis: 0);
                 }
-                this._maxInputIdx = Convert.ToInt32(newMaxInputIdx);
+                this.maxInputIdx = Convert.ToInt32(newMaxInputIdx);
             }
             // Get classification info
             if (classification is not null)
@@ -135,7 +133,7 @@
                 else
                 {
                     bucketIdxList = classification["bucketIdx"];
-                    actValueList = classification["actValue"];
+                    actValueList = (List<object>) classification["actValue"];
                     numCategory = ((List<object>) classification["bucketIdx"]).Count();
                 }
             }
@@ -143,13 +141,17 @@
             {
                 if (learn)
                 {
-                    //throw ValueError("classification cannot be None when learn=True");
-                    Console.WriteLine("classification cannot be None when learn=True");
-
+                    throw new InvalidDataException("classification cannot be None when learn=True");
                 }
                 actValueList = null;
                 bucketIdxList = null;
             }
+
+            if (infer)
+            {
+                retval = this.Infer(patternNZ, actValueList);
+            }
+               
         }
 
         /// <summary>
@@ -166,7 +168,7 @@
         /// array containing the relative likelihood for each bucketIdx
         /// starting from bucketIdx 0.
         /// </returns>
-        public object Infer(List<int> patternNZ, List<object> actValueList)
+        public Dictionary<object, object> Infer(List<int> patternNZ, List<object>? actValueList)
         {
             object defaultValue;
             /**
@@ -184,12 +186,12 @@
             {
                 defaultValue = actValueList[0];
             }
-            var actValues = (from x in this._actualValues
+            var actValues = (from x in this.actualValues
                              select x != null ? x : defaultValue).ToList();
             var retval = new Dictionary<object, object> {{"actualValues", actValues}};
             foreach (var nSteps in this.steps)
             {
-                var predictDist = this.InferSingleStep(patternNZ, this._weightMatrix[nSteps]);
+                var predictDist = this.InferSingleStep(patternNZ, this.weightMatrix[nSteps]);
                 retval[nSteps] = predictDist;
             }
             return retval;
