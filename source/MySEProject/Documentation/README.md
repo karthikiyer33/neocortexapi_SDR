@@ -17,6 +17,7 @@ HTM systems follows the hierarchical structure of data processing and it usually
 The SDR classifier maps input patterns to class labels. There are as many output units as the number of class labels or buckets (in the case of scalar encoders). The output is a probabilistic distribution over all class labels. During inference, the output is calculated by first doing a weighted summation of all the inputs, and then perform a softmax nonlinear function to get the predicted distribution of class labels During learning, the connection weights between input units and output units are adjusted to maximize the likelihood of the model.
 
 
+
 **Input:**
 A set of numerical or binary values that represent the features or attributes of an object or data sample. Example:In image classification: the input to an SDR classifier could be a set of pixel values representing an image, where each pixel value is treated as a feature.
 

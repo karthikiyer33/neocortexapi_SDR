@@ -1,4 +1,4 @@
-﻿namespace SDRClassifier
+namespace SDRClassifier
 {
     using NumSharp;
     using System;
@@ -214,9 +214,6 @@
             var predictDist = expOutputActivation / np.sum(expOutputActivation);
             return predictDist;
         }
-
-
- 
 
         
     }
