@@ -10,9 +10,9 @@
 
         public int version = 1;
         public List<int> steps;
-        public float alpha;
-        public float actValueAlpha;
-        public float verbosity;
+        public double alpha;
+        public double actValueAlpha;
+        public double verbosity;
         private int maxSteps;
         private LinkedList<Tuple<int, List<int>>> patternNZHistory = new();
         private int maxInputIdx;
@@ -20,7 +20,7 @@
         private Dictionary<int, NDArray> weightMatrix = new();
         private List<object> actualValues = new();
 
-        public SDRClassifier(List<int> steps, float alpha, float actValueAlpha, float verbosity, int version)
+        public SDRClassifier(List<int> steps, double alpha, double actValueAlpha, double verbosity, int version)
         {
             if (steps.Count == 0)
             {
@@ -110,7 +110,7 @@
             // To allow multi-class classification, we need to be able to run learning
             // without inference being on. So initialize retval outside
             // of the inference block.
-            var retval = new Dictionary<object, object>();
+            var retval = new Dictionary<string, object>();
             // Update maxInputIdx and augment weight matrix with zero padding
             if (patternNZ.Max() > this.maxInputIdx)
             {
@@ -168,7 +168,7 @@
         /// array containing the relative likelihood for each bucketIdx
         /// starting from bucketIdx 0.
         /// </returns>
-        public Dictionary<object, object> Infer(List<int> patternNZ, List<object>? actValueList)
+        public Dictionary<string, object> Infer(List<int> patternNZ, List<object>? actValueList)
         {
             object defaultValue;
             /**
@@ -188,11 +188,11 @@
             }
             var actValues = (from x in this.actualValues
                              select x != null ? x : defaultValue).ToList();
-            var retval = new Dictionary<object, object> {{"actualValues", actValues}};
+            var retval = new Dictionary<string, object> {{"actualValues", actValues}};
             foreach (var nSteps in this.steps)
             {
                 var predictDist = this.InferSingleStep(patternNZ, this.weightMatrix[nSteps]);
-                retval[nSteps] = predictDist;
+                retval[nSteps.ToString()] = predictDist;
             }
             return retval;
         }
@@ -215,7 +215,7 @@
             return predictDist;
         }
 
-        public static object getSchema(object cls)
+        /*public static object getSchema(object cls)
         {
             return SdrClassifierProto;
         }
@@ -316,7 +316,7 @@
             }
             proto.version = this._version;
             proto.verbosity = this.verbosity;
-        }
+        }*/
     }
 
 }
