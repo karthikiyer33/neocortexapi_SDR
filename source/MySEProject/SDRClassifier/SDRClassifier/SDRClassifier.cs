@@ -1,4 +1,4 @@
-﻿namespace SDRClassifier
+namespace SDRClassifier
 {
     using NumSharp;
     using System;
@@ -10,9 +10,9 @@
 
         public int version = 1;
         public List<int> steps;
-        public double alpha;
-        public double actValueAlpha;
-        public double verbosity;
+        public float alpha;
+        public float actValueAlpha;
+        public float verbosity;
         private int maxSteps;
         private LinkedList<Tuple<int, List<int>>> patternNZHistory = new();
         private int maxInputIdx;
@@ -20,7 +20,7 @@
         private Dictionary<int, NDArray> weightMatrix = new();
         private List<object> actualValues = new();
 
-        public SDRClassifier(List<int> steps, double alpha, double actValueAlpha, double verbosity, int version)
+        public SDRClassifier(List<int> steps, float alpha, float actValueAlpha, float verbosity, int version)
         {
             if (steps.Count == 0)
             {
@@ -80,11 +80,11 @@
                 bool learn,
                 bool infer)
         {
-           // int nSteps;
+            // int nSteps;
             int numCategory;
             List<object> actValueList;
             object bucketIdxList;
-          
+
             if (this.verbosity >= 1)
             {
                 Console.WriteLine("  learn: {0}", learn);
@@ -94,23 +94,23 @@
             }
             // ensures that recordNum increases monotonically
             if (this.patternNZHistory.Count > 0)
-            {    
+            {
                 if (recordNum < this.patternNZHistory.Last?.Value?.Item1)
                 {
                     throw new InvalidDataException("the record number has to increase monotonically");
                 }
             }
             // Store pattern in our history if this is a new record
-        
+
             if (this.patternNZHistory.Count == 0 || recordNum > this.patternNZHistory.Last?.Value?.Item1)
-            {   
+            {
                 this.patternNZHistory.AddLast(new LinkedListNode<Tuple<int, List<int>>>(new Tuple<int, List<int>>(recordNum, patternNZ)));
             }
 
             // To allow multi-class classification, we need to be able to run learning
             // without inference being on. So initialize retval outside
             // of the inference block.
-            var retval = new Dictionary<string, object>();
+            var retval = new Dictionary<object, object>();
             // Update maxInputIdx and augment weight matrix with zero padding
             if (patternNZ.Max() > this.maxInputIdx)
             {
@@ -126,15 +126,15 @@
             {
                 if (classification["bucketIdx"].GetType() != typeof(List<>))
                 {
-                    bucketIdxList = new List<object> {classification["bucketIdx"]};
-                    actValueList = new List<object> {classification["actValue"]};
+                    bucketIdxList = new List<object> { classification["bucketIdx"] };
+                    actValueList = new List<object> { classification["actValue"] };
                     numCategory = 1;
                 }
                 else
                 {
                     bucketIdxList = classification["bucketIdx"];
-                    actValueList = (List<object>) classification["actValue"];
-                    numCategory = ((List<object>) classification["bucketIdx"]).Count();
+                    actValueList = (List<object>)classification["actValue"];
+                    numCategory = ((List<object>)classification["bucketIdx"]).Count();
                 }
             }
             else
@@ -151,7 +151,6 @@
             {
                 retval = this.Infer(patternNZ, actValueList);
             }
-               
         }
 
         /// <summary>
@@ -168,7 +167,7 @@
         /// array containing the relative likelihood for each bucketIdx
         /// starting from bucketIdx 0.
         /// </returns>
-        public Dictionary<string, object> Infer(List<int> patternNZ, List<object>? actValueList)
+        public Dictionary<object, object> Infer(List<int> patternNZ, List<object>? actValueList)
         {
             object defaultValue;
             /**
@@ -188,11 +187,11 @@
             }
             var actValues = (from x in this.actualValues
                              select x != null ? x : defaultValue).ToList();
-            var retval = new Dictionary<string, object> {{"actualValues", actValues}};
+            var retval = new Dictionary<object, object> { { "actualValues", actValues } };
             foreach (var nSteps in this.steps)
             {
                 var predictDist = this.InferSingleStep(patternNZ, this.weightMatrix[nSteps]);
-                retval[nSteps.ToString()] = predictDist;
+                retval[nSteps] = predictDist;
             }
             return retval;
         }
@@ -215,108 +214,7 @@
             return predictDist;
         }
 
-        /*public static object getSchema(object cls)
-        {
-            return SdrClassifierProto;
-        }
-
-        public static object Read(object cls, object proto)
-        {
-            var classifier = object.@__new__(cls);
-            classifier.steps = (from step in proto.steps
-                                select step).ToList();
-            classifier.alpha = proto.alpha;
-            classifier.actValueAlpha = proto.actValueAlpha;
-            classifier._patternNZHistory = deque(maxlen: max(classifier.steps) + 1);
-            var patternNZHistoryProto = proto.patternNZHistory;
-            var recordNumHistoryProto = proto.recordNumHistory;
-            foreach (var i in xrange(patternNZHistoryProto.Count))
-            {
-                classifier._patternNZHistory.append((recordNumHistoryProto[i], patternNZHistoryProto[i].ToList()));
-            }
-            classifier._maxSteps = proto.maxSteps;
-            classifier._maxBucketIdx = proto.maxBucketIdx;
-            classifier._maxInputIdx = proto.maxInputIdx;
-            classifier._weightMatrix = new Dictionary<object, object>
-            {
-            };
-            var weightMatrixProto = proto.weightMatrix;
-            foreach (var i in xrange(weightMatrixProto.Count))
-            {
-                classifier._weightMatrix[weightMatrixProto[i].steps] = numpy.reshape(weightMatrixProto[i].weight, newshape: (classifier._maxInputIdx + 1, classifier._maxBucketIdx + 1));
-            }
-            classifier._actualValues = new List<object>();
-            foreach (var actValue in proto.actualValues)
-            {
-                if (actValue == 0)
-                {
-                    classifier._actualValues.append(null);
-                }
-                else
-                {
-                    classifier._actualValues.append(actValue);
-                }
-            }
-            classifier._version = proto.version;
-            classifier.verbosity = proto.verbosity;
-            return classifier;
-        }
-
-        public virtual object Write(object proto)
-        {
-            var stepsProto = proto.init("steps", this.steps.Count);
-            foreach (var i in xrange(this.steps.Count))
-            {
-                stepsProto[i] = this.steps[i];
-            }
-            proto.alpha = this.alpha;
-            proto.actValueAlpha = this.actValueAlpha;
-            // NOTE: technically, saving `_maxSteps` is redundant, since it may be
-            // reconstructed from `self.steps` just as in the constructor. Eliminating
-            // this attribute from the capnp scheme will involve coordination with
-            // nupic.core, where the `SdrClassifierProto` schema resides.
-            proto.maxSteps = this._maxSteps;
-            // NOTE: size of history buffer may be less than `self._maxSteps` if fewer
-            // inputs had been processed
-            var patternProto = proto.init("patternNZHistory", this._patternNZHistory.Count);
-            var recordNumHistoryProto = proto.init("recordNumHistory", this._patternNZHistory.Count);
-            foreach (var i in xrange(this._patternNZHistory.Count))
-            {
-                var subPatternProto = patternProto.init(i, this._patternNZHistory[i][1].Count);
-                foreach (var j in xrange(this._patternNZHistory[i][1].Count))
-                {
-                    subPatternProto[j] = Convert.ToInt32(this._patternNZHistory[i][1][j]);
-                }
-                recordNumHistoryProto[i] = Convert.ToInt32(this._patternNZHistory[i][0]);
-            }
-            var weightMatrices = proto.init("weightMatrix", this._weightMatrix.Count);
-            var i = 0;
-            foreach (var step in this.steps)
-            {
-                var stepWeightMatrixProto = weightMatrices[i];
-                stepWeightMatrixProto.steps = step;
-                stepWeightMatrixProto.weight = this._weightMatrix[step].flatten().astype(type("float", ValueTuple.Create(float), new Dictionary<object, object>
-                {
-                })).ToList();
-                i += 1;
-            }
-            proto.maxBucketIdx = this._maxBucketIdx;
-            proto.maxInputIdx = this._maxInputIdx;
-            var actualValuesProto = proto.init("actualValues", this._actualValues.Count);
-            foreach (var i in xrange(this._actualValues.Count))
-            {
-                if (this._actualValues[i] != null)
-                {
-                    actualValuesProto[i] = this._actualValues[i];
-                }
-                else
-                {
-                    actualValuesProto[i] = 0;
-                }
-            }
-            proto.version = this._version;
-            proto.verbosity = this.verbosity;
-        }*/
+        
     }
 
 }
