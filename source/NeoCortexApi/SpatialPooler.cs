@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 namespace NeoCortexApi
@@ -130,13 +131,8 @@ namespace NeoCortexApi
                 colList.Add(new KeyPair() { Key = i, Value = new Column(numCells, i, conn.HtmConfig.SynPermConnected, conn.HtmConfig.NumInputs) });
             }
 
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
             conn.Memory.set(colList);
-
-            sw.Stop();
-
+                        
             //Initialize state meta-management statistics
             conn.HtmConfig.OverlapDutyCycles = new double[numColumns];
             conn.HtmConfig.ActiveDutyCycles = new double[numColumns];
@@ -147,11 +143,19 @@ namespace NeoCortexApi
             ArrayUtils.FillArray(conn.BoostFactors, 1);
         }
 
+        /// <summary>
+        /// Traces out permances of all mini-colums in the current iteration.
+        /// </summary>
+        /// <param name="fileName"></param>
         public void TraceColumnPermenances(string fileName)
         {
             this.connections.TraceColumnPermanences(fileName);
         }
-            
+
+        public List<List<double>> GetColumnPermenances()
+        {
+            return this.connections.GetColumnPermanences();
+        }
 
         /// <summary>
         /// Implements single threaded initialization of SP.
@@ -380,7 +384,7 @@ namespace NeoCortexApi
         /// This value is automatically calculated when the RF is created on init of the SP and in every learning cycle.
         /// It helps to calculate the inhibition density.
         /// The inhibition radius determines the size of a column's local neighborhood. 
-        /// A mini-column's overlap mist be highest in its neighborhood in order to become active.
+        /// A mini-column's overlap must be highest in its neighborhood in order to become active.
         /// </summary>
         internal int InhibitionRadius { get; set; } = 0;
 
@@ -595,7 +599,7 @@ namespace NeoCortexApi
             return HtmCompute.CalcAvgSpanOfConnectedSynapses(c.GetColumn(columnIndex), c.HtmConfig);
         }
 
-
+        
         /// <summary>
         /// The primary method in charge of learning. Adapts the permanence values of the synapses based on the input vector, 
         /// and the chosen columns after inhibition round. Permanence values are increased for synapses connected to input bits
@@ -611,11 +615,14 @@ namespace NeoCortexApi
 
             double[] permChanges = new double[conn.HtmConfig.NumInputs];
 
-            // First we initialize all permChanges to minimum decrement values,
-            // which are used in a case of none-connections to input.
+            // First we initialize all permChanges to minimum decrement values SynPermInactiveDec.
             ArrayUtils.InitArray(permChanges, -1 * conn.HtmConfig.SynPermInactiveDec);
 
             // Then we set SynPermActiveInc to all connected synapses.
+            // With this, all mini-columns connected to the currently active input neurons will increment 
+            // their permanence by SynPermActiveInc. In contrast, all other synapses that are not connected
+            // to active neurons will be decremented by SynPermInactiveDec.
+            // This is some kind of natural punishing mechanism, which can be compared to backpropagation of error.
             ArrayUtils.SetIndexesTo(permChanges, actInputIndexes.ToArray(), conn.HtmConfig.SynPermActiveInc);
 
             for (int i = 0; i < activeColumns.Length; i++)
@@ -1431,6 +1438,49 @@ namespace NeoCortexApi
         {
             return this.Equals((object)other);
         }
+
+        /// <summary>
+        /// Reconstructs the input from the SDR produced by Spatial Pooler.
+        /// </summary>
+        /// <param name="activeMiniColumns">The array of active mini columns.</param>
+        /// <returns>Dictionary of inputs, with permanences resulted from acurrently active mini-columns.</returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public Dictionary<int, double> Reconstruct(int[] activeMiniColumns)
+        {
+            if (activeMiniColumns == null)
+            {
+                throw new ArgumentNullException(nameof(activeMiniColumns));
+            }
+
+            var cols = connections.GetColumnList(activeMiniColumns);
+
+            Dictionary<int, double> permancences = new Dictionary<int, double>();
+
+            //
+            // Iterate through all columns and collect all synapses.
+            foreach (var col in cols)
+            {
+                col.ProximalDendrite.Synapses.ForEach(s =>
+                {
+                    double currPerm = 0.0;
+
+                    // Check if the key already exists
+                    if (permancences.TryGetValue(s.InputIndex, out currPerm))
+                    {
+                        // Key exists, update the value
+                        permancences[s.InputIndex] = s.Permanence + currPerm;
+                    }
+                    else
+                    {
+                        // Key doesn't exist, add a new key-value pair
+                        permancences[s.InputIndex] = s.Permanence;
+                    }
+                });
+            }
+
+            return permancences;
+        }
+
 
         public void Serialize(object obj, string name, StreamWriter sw)
         {

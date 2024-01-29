@@ -3,6 +3,7 @@ using NeoCortexApi.Entities;
 using NeoCortexApi.Network;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -31,7 +32,7 @@ namespace NeoCortexApi
         /// <param name="classifier">The classifier that contains the state of learned sequences.</param>
 
         public Predictor(CortexLayer<object, object> layer, Connections connections, HtmClassifier<string, ComputeCycle> classifier)
-        { 
+        {
             this.connections = connections;
             this.layer = layer;
             this.classifier = classifier;
@@ -59,6 +60,16 @@ namespace NeoCortexApi
             List<ClassifierResult<string>> predictedInputValues = this.classifier.GetPredictedInputValues(lyrOut.PredictiveCells.ToArray(), 3);
 
             return predictedInputValues;
+        }
+
+        public void Serialize(object obj, string name, StreamWriter sw)
+        {
+            this.connections.Serialize(obj, name, sw);
+        }
+
+        public static object Deserialize<T>(StreamReader sr, string name)
+        {
+            throw new NotImplementedException();
         }
     }
 }

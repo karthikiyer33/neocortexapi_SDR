@@ -102,7 +102,7 @@ namespace UnitTestsProject
 
             int[] activeArray = new int[128];
 
-            int[] inputVector = Helpers.GetRandomVector(32, parameters.Get<Random>(KEY.RANDOM));
+            int[] inputVector = Helpers.GetRandomVector(32, rnd: parameters.Get<Random>(KEY.RANDOM));
 
             for (int i = 0; i < 100; i++)
             {
@@ -137,7 +137,7 @@ namespace UnitTestsProject
 
             int[] activeArray = new int[2048];
 
-            int[] inputVector = Helpers.GetRandomVector(1000, parameters.Get<Random>(KEY.RANDOM));
+            int[] inputVector = Helpers.GetRandomVector(1000, rnd: parameters.Get<Random>(KEY.RANDOM));
 
             sp.compute(inputVector, activeArray, true);
 
@@ -391,7 +391,7 @@ namespace UnitTestsProject
         /// </summary>
         [TestMethod]
         [DataRow("TestDigit\\digit1_binary_32bit.txt")]
-        public List<int> ReadCsvFileTest(String sourcePath)
+        public void ReadCsvFileTest(String sourcePath)
         {
             string fileContent = File.ReadAllText(sourcePath);
             string[] integerStrings = fileContent.Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -405,7 +405,7 @@ namespace UnitTestsProject
                     intList.Add(int.Parse(sub[j].ToString()));
                 }
             }
-            return intList;
+
         }
 
 
